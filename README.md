@@ -1,27 +1,69 @@
-# AWS Nitro Enclave Blockchain Wallet and Advanced Networking Patterns
+# Heimdall - Multi-User Starknet Signing Service with AWS Nitro Enclaves
 
-This project represents an example implementation of an AWS Nitro Enclave based blockchain account management solution a.k.a. a wallet.
-It's implemented in AWS Cloud Development Kit (CDK) v2 and Python.
+Heimdall is a secure, multi-user Starknet transaction signing service built on AWS Nitro Enclaves. It provides deterministic key derivation for multiple users while maintaining the highest security standards through hardware-based isolation.
 
-This repository contains all code artifacts for the following three blog posts:
-1. [AWS Nitro Enclaves for secure blockchain key management: Part 1](https://aws.amazon.com/blogs/database/part-1-aws-nitro-enclaves-for-secure-blockchain-key-management/)
-2. [AWS Nitro Enclaves for secure blockchain key management: Part 2](https://aws.amazon.com/blogs/database/part-2-aws-nitro-enclaves-for-secure-blockchain-key-management/)
-3. [AWS Nitro Enclaves for secure blockchain key management: Part 3](https://aws.amazon.com/blogs/database/part-3-aws-nitro-enclaves-for-secure-blockchain-key-management/)
+## Features
 
-For an overview of how to design an AWS Nitro Enclave based blockchain application please have a look at the [first blog post](https://aws.amazon.com/blogs/database/part-1-aws-nitro-enclaves-for-secure-blockchain-key-management/).
+- **Multi-User Support**: Deterministic key derivation allows multiple users to have their own unique Starknet private keys
+- **Hardware Security**: AWS Nitro Enclaves provide hardware-based isolation and cryptographic attestation
+- **Starknet Native**: Built specifically for Starknet using starknet-py SDK with support for Cairo 1.0
+- **Secure Key Management**: Master seed encrypted with AWS KMS, individual keys derived using HKDF
+- **Simple Authentication**: Username-based authentication for easy integration
+- **Production Ready**: Comprehensive testing, monitoring, and deployment automation
 
-For a walkthrough of how to deploy and configure the Nitro Enclave based blockchain key management solution please refer to the [second blog post](https://aws.amazon.com/blogs/database/part-2-aws-nitro-enclaves-for-secure-blockchain-key-management/).
+## Multi-User Architecture
 
-For a deep dive into Nitro Enclaves and the explanation of features like cryptographic attestation and additional information about the general architecture of a Nitro Enclaves-based Ethereum signing application please refer to [third blog post](https://aws.amazon.com/blogs/database/part-3-aws-nitro-enclaves-for-secure-blockchain-key-management/).
+The system uses a master seed to deterministically derive unique Starknet private keys for each user:
 
-For an AWS Workshop Studio based walkthrough please refer to [Leveraging AWS Nitro Enclaves for Secure Blockchain Key Management](https://catalog.workshops.aws/nitrowallet).
+```
+Master Seed (AWS KMS) → HKDF(username, key_index) → User-Specific Starknet Key
+```
 
-For Nitro Enclave advanced networking patterns, please refer to the respective application folders.
-1. [Wireguard TUN Interface](./application/wireguard/README.md)
-2. [Socat TUN Interface](./application/socat/README.md)
-3. [HTTPS Outbound](./application/rds_integration/README.md)
-4. [HTTPS Inbound](./application/https_web_server/README.md)
-5. [SQS Queue Integration](./application/dotnet_sqs_integration/README.md)
+Each user authenticates with just a username and receives their own isolated key space. Users can derive multiple keys using different key indices.
+
+## Quick Start
+
+### 1. Set up environment variables
+```bash
+export CDK_DEPLOY_REGION=us-east-1
+export CDK_DEPLOY_ACCOUNT=$(aws sts get-caller-identity | jq -r '.Account')
+export CDK_PREFIX=dev
+```
+
+### 2. Deploy the infrastructure
+```bash
+npm install -g aws-cdk && cdk --version
+pip install -r requirements.txt
+./scripts/build_kmstool_enclave_cli.sh
+cdk deploy ${CDK_PREFIX}NitroWalletStarknet
+```
+
+### 3. Use the multi-user API
+```bash
+# Sign a transaction for user "alice"
+curl -X POST https://your-endpoint/sign \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "alice",
+    "operation": "sign_transaction",
+    "key_index": 0,
+    "transaction_payload": {
+      "contract_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+      "function_name": "transfer",
+      "calldata": ["0x123...", "1000", "0"]
+    }
+  }'
+```
+
+## Documentation
+
+For detailed information, see the Starknet-specific documentation:
+
+- [Multi-User Design](./application/starknet/MULTIUSER_DESIGN.md) - Technical architecture and security model
+- [Deployment Guide](./application/starknet/MULTIUSER_DEPLOYMENT.md) - Complete deployment instructions
+- [API Reference](./application/starknet/API_REFERENCE.md) - Full API documentation
+- [Starknet Integration](./application/starknet/STARKNET_INTEGRATION.md) - Starknet-specific details
+- [Security Model](./application/starknet/SECURITY.md) - Security considerations and best practices
 
 ## Architecture
 
@@ -69,19 +111,18 @@ workshop [Activating the virtualenv](https://cdkworkshop.com/30-python/20-create
    ```bash
    export CDK_DEPLOY_REGION=us-east-1
    export CDK_DEPLOY_ACCOUNT=$(aws sts get-caller-identity | jq -r '.Account')
-   export CDK_APPLICATION_TYPE=eth1  # Options: eth1, starknet
    export CDK_PREFIX=dev
    ```
-   You can set the ```CDK_PREFIX``` variable as per your preference. The ```CDK_APPLICATION_TYPE``` can be set to either `eth1` for Ethereum support or `starknet` for Starknet support.
+   You can set the ```CDK_PREFIX``` variable as per your preference.
 
 5. Trigger the `kmstool_enclave_cli` build:
    ```bash
    ./scripts/build_kmstool_enclave_cli.sh
    ```
 
-6. Deploy the example code with the CDK CLI:
+6. Deploy the Starknet multi-user service with the CDK CLI:
     ```bash
-    cdk deploy ${CDK_PREFIX}NitroWalletEth
+    cdk deploy ${CDK_PREFIX}NitroWalletStarknet
     ```
 
 ## KMS Key Policy
@@ -155,57 +196,47 @@ After the `output.json` file has been created, the following command can be used
 If the debug mode has been turned on by appending `--debug-mode` to the enclaves start sequence, the enclaves PCR0 value in the AWS KMS key policy needs to be updated to `000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000`,
 otherwise AWS KMS will return error code `400`.
 
-## Key Generation and Requests
+## Multi-User Operations
 
-### Create Ethereum Key
+### Initialize Master Seed
 
-Use the command below to create a temporary Ethereum private key.
-
-```bash
-openssl ecparam -name secp256k1 -genkey -noout | openssl ec -text -noout > key
-cat key | grep priv -A 3 | tail -n +2 | tr -d '\n[:space:]:' | sed 's/^00//'
-```
-
-Use the following command to calculate the corresponding public address for your temporary Ethereum key created in the previous step.
-[keccak-256sum](https://github.com/maandree/sha3sum) binary needs to be made available to execute the calculation step successfully.
-
-```bash
-cat key | grep pub -A 5 | tail -n +2 | tr -d '\n[:space:]:' | sed 's/^04//' > pub
-echo "0x$(cat pub | keccak-256sum -x -l | tr -d ' -' | tail -c 41)"
-```
-
-Please be aware that the calculated public address does not comply with the valid mixed-case checksum encoding standard for Ethereum addresses specified in [EIP-55](https://github.com/ethereum/EIPs/blob/master/EIPS/eip-55.md).
-
-### Set Ethereum Key
-
-Replace the Ethereum key placeholder in the JSON request below and use the request to encrypt and store the Ethereum key
-via the Lambda `test` console:
+Use the Lambda function to initialize the master seed for key derivation:
 
 ```json
 {
-  "operation": "set_key",
-  "eth_key": <ethereum_key_placeholder>
+  "operation": "set_master_seed"
 }
 ```
 
-### Sign EIP-1559 Transaction
+### Sign Transaction for User
 
-Use the request below to sign an Ethereum EIP-1559 transaction with the saved Ethereum key using the Labda `test`
-console:
+Use the multi-user API to sign transactions for specific users:
 
 ```json
 {
+  "username": "alice",
   "operation": "sign_transaction",
+  "key_index": 0,
   "transaction_payload": {
-    "value": 0.01,
-    "to": "0xa5D3241A1591061F2a4bB69CA0215F66520E67cf",
+    "contract_address": "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+    "function_name": "transfer",
+    "calldata": ["0x123abc...", "1000", "0"],
+    "max_fee": "0x1000000000000",
     "nonce": 0,
-    "type": 2,
-    "chainId": 4,
-    "gas": 100000,
-    "maxFeePerGas": 100000000000,
-    "maxPriorityFeePerGas": 3000000000
+    "chain_id": "testnet"
   }
+}
+```
+
+### Get Account Information
+
+Retrieve account information for a user:
+
+```json
+{
+  "username": "alice", 
+  "operation": "get_account_info",
+  "key_index": 0
 }
 ```
 

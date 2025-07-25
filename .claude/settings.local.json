@@ -23,7 +23,8 @@
       "Bash(PYTHONPATH=. python:*)",
       "Bash(rm:*)",
       "Bash(PYTHONPATH=\".\" python -c \"\nimport sys\nsys.dont_write_bytecode = True\nimport pytest\nsys.exit(pytest.main([\n    ''tests/integration/test_starknet_basic.py'',\n    ''-v'',\n    ''--tb=short'',\n    ''-p'', ''no:web3''\n]))\n\")",
-      "mcp__cairo-coder__assist_with_cairo"
+      "mcp__cairo-coder__assist_with_cairo",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

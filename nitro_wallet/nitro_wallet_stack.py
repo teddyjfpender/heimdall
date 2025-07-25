@@ -24,27 +24,35 @@ class NitroWalletStack(Stack):
         params = kwargs.pop("params")
         super().__init__(scope, construct_id, **kwargs)
 
-        application_type = params["application_type"]
+        # Force application type to starknet since we've removed other applications
+        application_type = "starknet"
 
+        # Master seed secret for multi-user key derivation
+        master_seed_secret = aws_secretsmanager.Secret(
+            self, 
+            "MasterSeedSecret",
+            description="Master seed for Starknet multi-user key derivation"
+        )
+
+        # Legacy encrypted key secret for backward compatibility
         encrypted_key = aws_secretsmanager.Secret(self, "SecretsManager")
 
-        # key to encrypt stored private keys - key rotation can be enabled in this scenario since that the
-        # key id is encoded in the cypher text metadata
+        # Key to encrypt master seed and stored private keys
         encryption_key = aws_kms.Key(self, "EncryptionKey", enable_key_rotation=True)
         encryption_key.apply_removal_policy(aws_cdk.RemovalPolicy.DESTROY)
 
         signing_server_image = aws_ecr_assets.DockerImageAsset(
             self,
-            "EthereumSigningServerImage",
-            directory="./application/{}/server".format(application_type),
+            "StarknetSigningServerImage",
+            directory="./application/starknet/server",
             platform=aws_ecr_assets.Platform.LINUX_AMD64,
             build_args={"REGION_ARG": self.region},
         )
 
         signing_enclave_image = aws_ecr_assets.DockerImageAsset(
             self,
-            "EthereumSigningEnclaveImage",
-            directory="./application/{}/enclave".format(application_type),
+            "StarknetSigningEnclaveImage",
+            directory="./application/starknet/enclave",
             platform=aws_ecr_assets.Platform.LINUX_AMD64,
             build_args={"REGION_ARG": self.region},
         )
@@ -160,12 +168,13 @@ class NitroWalletStack(Stack):
             "__REGION__": self.region,
         }
 
-        with open("./application/{}/user_data/user_data.sh".format(application_type)) as f:
+        with open("./application/starknet/user_data/user_data.sh") as f:
             user_data_raw = Fn.sub(f.read(), mappings)
 
         signing_enclave_image.repository.grant_pull(role)
         signing_server_image.repository.grant_pull(role)
         encrypted_key.grant_read(role)
+        master_seed_secret.grant_read(role)
 
         nitro_launch_template = aws_ec2.LaunchTemplate(
             self,
@@ -221,9 +230,9 @@ class NitroWalletStack(Stack):
 
         invoke_lambda = aws_lambda.Function(
             self,
-            "NitroInvokeLambda",
+            "StarknetInvokeLambda",
             code=aws_lambda.Code.from_asset(
-                path="application/{}/lambda".format(params["application_type"])
+                path="application/starknet/lambda"
             ),
             handler="lambda_function.lambda_handler",
             runtime=aws_lambda.Runtime.PYTHON_3_11,
@@ -233,6 +242,7 @@ class NitroWalletStack(Stack):
                 "LOG_LEVEL": "DEBUG",
                 "NITRO_INSTANCE_PRIVATE_DNS": nitro_nlb.load_balancer_dns_name,
                 "SECRET_ARN": encrypted_key.secret_full_arn,
+                "MASTER_SEED_SECRET_ID": master_seed_secret.secret_full_arn,
                 "KEY_ARN": encryption_key.key_arn,
             },
             vpc=vpc,
@@ -243,9 +253,13 @@ class NitroWalletStack(Stack):
         )
 
         encrypted_key.grant_write(invoke_lambda)
-        # if productive case, lambda is just allowed to set the secret key value
+        master_seed_secret.grant_write(invoke_lambda)
+        encryption_key.grant_encrypt(invoke_lambda)
+        
+        # if dev case, lambda is allowed to read secrets for testing
         if params.get("deployment") == "dev":
             encrypted_key.grant_read(invoke_lambda)
+            master_seed_secret.grant_read(invoke_lambda)
 
         CfnOutput(
             self,
@@ -270,6 +284,13 @@ class NitroWalletStack(Stack):
 
         CfnOutput(
             self, "KMS Key ID", value=encryption_key.key_id, description="KMS Key ID"
+        )
+
+        CfnOutput(
+            self,
+            "Master Seed Secret ARN",
+            value=master_seed_secret.secret_full_arn,
+            description="Master Seed Secret ARN for multi-user key derivation",
         )
 
         NagSuppressions.add_resource_suppressions(
