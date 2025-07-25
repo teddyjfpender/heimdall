@@ -1,0 +1,254 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  AWS_DEFAULT_REGION: us-east-1
+  PYTHON_VERSION: "3.11"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Set up Node.js for CDK
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libsecp256k1-dev pkg-config
+
+    - name: Install CDK
+      run: npm install -g aws-cdk@2.98.0
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt -r requirements-dev.txt
+
+    - name: Set up mock environment
+      run: |
+        export AWS_ACCESS_KEY_ID=testing
+        export AWS_SECRET_ACCESS_KEY=testing
+        export AWS_SECURITY_TOKEN=testing
+        export AWS_SESSION_TOKEN=testing
+        export AWS_DEFAULT_REGION=us-east-1
+
+    - name: Lint with flake8
+      run: |
+        flake8 nitro_wallet/ application/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        flake8 nitro_wallet/ application/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
+
+    - name: Check code formatting with black
+      run: black --check nitro_wallet/ application/
+
+    - name: Check import sorting with isort
+      run: isort --check-only nitro_wallet/ application/
+
+    - name: Type check with mypy
+      run: mypy nitro_wallet/ --ignore-missing-imports
+
+    - name: Security scan with bandit
+      run: bandit -r nitro_wallet/ application/ -f json -o bandit-report.json || true
+
+    - name: Upload bandit report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: bandit-report
+        path: bandit-report.json
+
+    - name: Run unit tests
+      run: |
+        pytest tests/unit/ -v --cov=nitro_wallet --cov=application --cov-report=xml --cov-report=html --junitxml=junit.xml
+
+    - name: Run integration tests
+      run: |
+        pytest tests/integration/ -v --tb=short -m "integration and not slow"
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: |
+          junit.xml
+          htmlcov/
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+    - name: CDK Synth Check
+      run: |
+        export CDK_APPLICATION_TYPE=eth1
+        export CDK_PREFIX=ci
+        cdk synth
+
+    - name: CDK Security Check
+      run: |
+        export CDK_APPLICATION_TYPE=eth1  
+        export CDK_PREFIX=ci
+        cdk synth --quiet | grep -E "(AWS::IAM|AWS::KMS|AWS::SecretsManager)" || true
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build ETH1 Server Image
+      run: |
+        docker build -t nitro-eth1-server:${{ github.sha }} ./application/eth1/server/
+        docker image inspect nitro-eth1-server:${{ github.sha }}
+
+    - name: Build ETH1 Enclave Image  
+      run: |
+        docker build -t nitro-eth1-enclave:${{ github.sha }} ./application/eth1/enclave/ --build-arg REGION_ARG=us-east-1
+        docker image inspect nitro-eth1-enclave:${{ github.sha }}
+
+    - name: Test Docker Images
+      run: |
+        # Test server image
+        docker run --rm nitro-eth1-server:${{ github.sha }} python --version
+        
+        # Test enclave image  
+        docker run --rm nitro-eth1-enclave:${{ github.sha }} python --version
+
+    - name: Container Security Scan
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'nitro-eth1-server:${{ github.sha }}'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+  security-audit:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements-dev.txt
+    
+    - name: Run security audit
+      run: |
+        bandit -r nitro_wallet/ application/ -f json -o bandit-security-report.json
+        
+    - name: Upload security report
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-audit-report
+        path: bandit-security-report.json
+
+  performance-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt -r requirements-dev.txt
+    
+    - name: Run performance tests
+      run: |
+        pytest tests/ -v -m "slow" --tb=short || true
+        
+    - name: Generate performance report
+      run: |
+        echo "Performance test completed" > performance-report.txt
+        
+    - name: Upload performance report
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-report
+        path: performance-report.txt
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [test, docker-build, security-audit]
+    if: always()
+    
+    steps:
+    - name: Notify on success
+      if: needs.test.result == 'success' && needs.docker-build.result == 'success'
+      run: |
+        echo "✅ All tests passed successfully!"
+        echo "Commit: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref }}"
+    
+    - name: Notify on failure
+      if: needs.test.result == 'failure' || needs.docker-build.result == 'failure'
+      run: |
+        echo "❌ Tests failed!"
+        echo "Commit: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref }}"
+        exit 1

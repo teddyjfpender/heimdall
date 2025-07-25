@@ -1,0 +1,22 @@
+black==24.3.0
+bandit==1.7.5
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.11.0
+moto[kms,secretsmanager,ec2,autoscaling]>=4.2.0
+responses>=0.23.0
+factory-boy>=3.3.0
+freezegun>=1.2.2
+testcontainers>=3.7.0
+mypy>=1.5.0
+pylint>=3.0.0
+flake8>=6.0.0
+isort>=5.12.0
+pre-commit>=3.4.0
+# Core dependencies needed for tests
+web3>=5.23.0
+boto3>=1.28.0
+docker>=6.1.0
+requests>=2.31.0
+starknet-py==0.24.2

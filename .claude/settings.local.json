@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(docker build:*)",
+      "Bash(docker system prune:*)",
+      "Bash(chmod:*)",
+      "Bash(docker run:*)",
+      "Bash(pip install:*)",
+      "Bash(python -m pytest tests/unit/ -v)",
+      "Bash(export:*)",
+      "Bash(python -m pytest tests/unit/test_eth1_enclave_server.py -v)",
+      "Bash(make:*)",
+      "Bash(python:*)",
+      "Bash(AWS_DEFAULT_REGION=us-east-1 python -c \"import sys; import os; sys.path.insert(0, ''./application/eth1/lambda''); import lambda_function; print(''Lambda import successful'')\")",
+      "Bash(AWS_DEFAULT_REGION=us-east-1 pytest tests/unit/test_eth1_enclave_server.py::TestEthereumSigning -v)",
+      "Bash(AWS_DEFAULT_REGION=us-east-1 make test-unit)",
+      "Bash(pytest:*)",
+      "Bash(mkdir:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(PYTHONPATH=/Users/theodorepender/Projects/Coding/py-projects/aws-nitro-enclave-blockchain-wallet python -c \"\nimport os\nimport sys\nsys.path.insert(0, os.path.join(os.getcwd(), ''application/starknet/lambda''))\nimport lambda_function\nprint(''Lambda function imported successfully'')\n\nfrom tests.starknet_factories import StarknetInvokeTransactionFactory\nstarknet_transaction = StarknetInvokeTransactionFactory() \nprint(''Factory worked:'', type(starknet_transaction))\nprint(''Contract address attribute:'', hasattr(starknet_transaction, ''contract_address''))\nprint(''Contract address:'', starknet_transaction.get(''contract_address'') if isinstance(starknet_transaction, dict) else getattr(starknet_transaction, ''contract_address'', None))\n\")",
+      "Bash(PYTHONPATH=. python:*)",
+      "Bash(rm:*)",
+      "Bash(PYTHONPATH=\".\" python -c \"\nimport sys\nsys.dont_write_bytecode = True\nimport pytest\nsys.exit(pytest.main([\n    ''tests/integration/test_starknet_basic.py'',\n    ''-v'',\n    ''--tb=short'',\n    ''-p'', ''no:web3''\n]))\n\")"
+    ],
+    "deny": []
+  }
+}
