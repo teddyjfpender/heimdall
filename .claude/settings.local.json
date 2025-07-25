@@ -22,7 +22,8 @@
       "Bash(PYTHONPATH=/Users/theodorepender/Projects/Coding/py-projects/aws-nitro-enclave-blockchain-wallet python -c \"\nimport os\nimport sys\nsys.path.insert(0, os.path.join(os.getcwd(), ''application/starknet/lambda''))\nimport lambda_function\nprint(''Lambda function imported successfully'')\n\nfrom tests.starknet_factories import StarknetInvokeTransactionFactory\nstarknet_transaction = StarknetInvokeTransactionFactory() \nprint(''Factory worked:'', type(starknet_transaction))\nprint(''Contract address attribute:'', hasattr(starknet_transaction, ''contract_address''))\nprint(''Contract address:'', starknet_transaction.get(''contract_address'') if isinstance(starknet_transaction, dict) else getattr(starknet_transaction, ''contract_address'', None))\n\")",
       "Bash(PYTHONPATH=. python:*)",
       "Bash(rm:*)",
-      "Bash(PYTHONPATH=\".\" python -c \"\nimport sys\nsys.dont_write_bytecode = True\nimport pytest\nsys.exit(pytest.main([\n    ''tests/integration/test_starknet_basic.py'',\n    ''-v'',\n    ''--tb=short'',\n    ''-p'', ''no:web3''\n]))\n\")"
+      "Bash(PYTHONPATH=\".\" python -c \"\nimport sys\nsys.dont_write_bytecode = True\nimport pytest\nsys.exit(pytest.main([\n    ''tests/integration/test_starknet_basic.py'',\n    ''-v'',\n    ''--tb=short'',\n    ''-p'', ''no:web3''\n]))\n\")",
+      "mcp__cairo-coder__assist_with_cairo"
     ],
     "deny": []
   }

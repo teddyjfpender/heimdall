@@ -20,7 +20,3 @@ application/eth2/
 *.key
 application/wireguard/third_party/*
 application/wireguard/enclave/kms/*
-
-# ignore non README markdown files
-*.md
-!README.md
