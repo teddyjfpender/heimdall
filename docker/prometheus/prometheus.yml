@@ -1,0 +1,37 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Heimdall services monitoring (when metrics endpoints are added)
+  - job_name: 'heimdall-starknet-server'
+    static_configs:
+      - targets: ['starknet-server:8080']  # Assuming metrics on port 8080
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  - job_name: 'heimdall-nitro-enclave-mock'
+    static_configs:
+      - targets: ['nitro-enclave-mock:8080']  # Assuming metrics on port 8080
+    scrape_interval: 10s
+    metrics_path: /metrics
+
+  # Infrastructure monitoring
+  - job_name: 'postgres-exporter'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+
+  - job_name: 'redis-exporter'  
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s

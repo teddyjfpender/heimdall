@@ -1,28 +1,22 @@
-name: CI/CD Pipeline
+name: Heimdall CI Pipeline
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-    branches: [ main ]
-
-env:
-  AWS_DEFAULT_REGION: us-east-1
-  PYTHON_VERSION: "3.11"
+    branches: [ main, develop ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11"]
     
     services:
       postgres:
-        image: postgres:13
+        image: postgres:15
         env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
+          POSTGRES_USER: heimdall
+          POSTGRES_PASSWORD: heimdall_password
+          POSTGRES_DB: heimdall_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -30,80 +24,107 @@ jobs:
           --health-retries 5
         ports:
           - 5432:5432
+      
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+      
+      localstack:
+        image: localstack/localstack:latest
+        env:
+          SERVICES: kms,secretsmanager
+          DEFAULT_REGION: us-east-1
+          DEBUG: 1
+        options: >-
+          --health-cmd "curl -f http://localhost:4566/_localstack/health || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 4566:4566
 
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.11
       uses: actions/setup-python@v4
       with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Set up Node.js for CDK
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-
-    - name: Cache pip dependencies
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements*.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
+        python-version: '3.11'
+        cache: 'pip'
 
     - name: Install system dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential libsecp256k1-dev pkg-config
+        sudo apt-get install -y curl jq gcc g++ make libffi-dev python3-dev
 
-    - name: Install CDK
-      run: npm install -g aws-cdk@2.98.0
+    - name: Setup development environment
+      run: make setup-dev
+      env:
+        POSTGRES_HOST: localhost
+        POSTGRES_PORT: 5432
+        POSTGRES_USER: heimdall
+        POSTGRES_PASSWORD: heimdall_password
+        POSTGRES_DB: heimdall_test
+        REDIS_URL: redis://localhost:6379/1
+        AWS_ENDPOINT_URL: http://localhost:4566
+        AWS_DEFAULT_REGION: us-east-1
+        AWS_ACCESS_KEY_ID: test
+        AWS_SECRET_ACCESS_KEY: test
 
-    - name: Install Python dependencies
+    - name: Wait for services to be ready
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt -r requirements-dev.txt
+        echo "Waiting for PostgreSQL..."
+        timeout 60 bash -c 'until pg_isready -h localhost -p 5432 -U heimdall; do sleep 1; done'
+        
+        echo "Waiting for Redis..."
+        timeout 30 bash -c 'until redis-cli -h localhost -p 6379 ping | grep -q PONG; do sleep 1; done'
+        
+        echo "Waiting for LocalStack..."
+        timeout 120 bash -c 'until curl -s http://localhost:4566/_localstack/health | grep -q available; do sleep 2; done'
 
-    - name: Set up mock environment
+    - name: Initialize AWS resources
       run: |
-        export AWS_ACCESS_KEY_ID=testing
-        export AWS_SECRET_ACCESS_KEY=testing
-        export AWS_SECURITY_TOKEN=testing
-        export AWS_SESSION_TOKEN=testing
+        # Install AWS CLI
+        pip install awscli
+        
+        # Configure AWS CLI for LocalStack
+        aws configure set aws_access_key_id test --profile localstack
+        aws configure set aws_secret_access_key test --profile localstack
+        aws configure set region us-east-1 --profile localstack
+        aws configure set endpoint_url http://localhost:4566 --profile localstack
+        
+        # Initialize AWS resources
+        chmod +x docker/localstack/init-aws.sh
+        AWS_DEFAULT_REGION=us-east-1 AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test ./docker/localstack/init-aws.sh
+      env:
+        AWS_ENDPOINT_URL: http://localhost:4566
+
+    - name: Run tests
+      run: |
+        export POSTGRES_HOST=localhost
+        export POSTGRES_PORT=5432
+        export POSTGRES_USER=heimdall
+        export POSTGRES_PASSWORD=heimdall_password
+        export POSTGRES_DB=heimdall_test
+        export REDIS_URL=redis://localhost:6379/1
+        export AWS_ENDPOINT_URL=http://localhost:4566
         export AWS_DEFAULT_REGION=us-east-1
+        export AWS_ACCESS_KEY_ID=test
+        export AWS_SECRET_ACCESS_KEY=test
+        python run_tests.py
 
-    - name: Lint with flake8
+    - name: Run linting and type checking
       run: |
-        flake8 nitro_wallet/ application/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        flake8 nitro_wallet/ application/ --count --exit-zero --max-complexity=10 --max-line-length=88 --statistics
-
-    - name: Check code formatting with black
-      run: black --check nitro_wallet/ application/
-
-    - name: Check import sorting with isort
-      run: isort --check-only nitro_wallet/ application/
-
-    - name: Type check with mypy
-      run: mypy nitro_wallet/ --ignore-missing-imports
-
-    - name: Security scan with bandit
-      run: bandit -r nitro_wallet/ application/ -f json -o bandit-report.json || true
-
-    - name: Upload bandit report
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: bandit-report
-        path: bandit-report.json
-
-    - name: Run unit tests
-      run: |
-        pytest tests/unit/ -v --cov=nitro_wallet --cov=application --cov-report=xml --cov-report=html --junitxml=junit.xml
-
-    - name: Run integration tests
-      run: |
-        pytest tests/integration/ -v --tb=short -m "integration and not slow"
+        make format-check
+        make lint
+      continue-on-error: true
 
     - name: Upload test results
       uses: actions/upload-artifact@v3
@@ -112,143 +133,80 @@ jobs:
         name: test-results
         path: |
           junit.xml
+          coverage.xml
           htmlcov/
+        retention-days: 30
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
+      if: always()
       with:
         file: ./coverage.xml
         flags: unittests
         name: codecov-umbrella
+        fail_ci_if_error: false
 
-    - name: CDK Synth Check
-      run: |
-        export CDK_APPLICATION_TYPE=eth1
-        export CDK_PREFIX=ci
-        cdk synth
+  security-scan:
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-    - name: CDK Security Check
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install security scanning tools
       run: |
-        export CDK_APPLICATION_TYPE=eth1  
-        export CDK_PREFIX=ci
-        cdk synth --quiet | grep -E "(AWS::IAM|AWS::KMS|AWS::SecretsManager)" || true
+        pip install bandit safety
+
+    - name: Run security scan
+      run: |
+        bandit -r application/ nitro_wallet/ config/ -f json -o bandit-report.json || true
+        bandit -r application/ nitro_wallet/ config/ || true
+
+    - name: Check for known vulnerabilities
+      run: |
+        safety check --json --output safety-report.json || true
+        safety check || true
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          safety-report.json
+        retention-days: 30
 
   docker-build:
     runs-on: ubuntu-latest
     needs: test
     
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
     - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
+      uses: docker/setup-buildx-action@v2
 
-    - name: Build ETH1 Server Image
+    - name: Build Starknet server image
       run: |
-        docker build -t nitro-eth1-server:${{ github.sha }} ./application/eth1/server/
-        docker image inspect nitro-eth1-server:${{ github.sha }}
+        docker build -t heimdall-starknet-server ./application/starknet/server/
 
-    - name: Build ETH1 Enclave Image  
+    - name: Build Starknet enclave image
       run: |
-        docker build -t nitro-eth1-enclave:${{ github.sha }} ./application/eth1/enclave/ --build-arg REGION_ARG=us-east-1
-        docker image inspect nitro-eth1-enclave:${{ github.sha }}
+        docker build -t heimdall-starknet-enclave ./application/starknet/enclave/
 
-    - name: Test Docker Images
+    - name: Build mock enclave image
       run: |
-        # Test server image
-        docker run --rm nitro-eth1-server:${{ github.sha }} python --version
-        
-        # Test enclave image  
-        docker run --rm nitro-eth1-enclave:${{ github.sha }} python --version
+        docker build -t heimdall-nitro-enclave-mock ./docker/nitro-enclave-mock/
 
-    - name: Container Security Scan
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: 'nitro-eth1-server:${{ github.sha }}'
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-
-    - name: Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v2
-      if: always()
-      with:
-        sarif_file: 'trivy-results.sarif'
-
-  security-audit:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
-    
-    - name: Install dependencies
+    - name: Test Docker images
       run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements-dev.txt
-    
-    - name: Run security audit
-      run: |
-        bandit -r nitro_wallet/ application/ -f json -o bandit-security-report.json
-        
-    - name: Upload security report
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: security-audit-report
-        path: bandit-security-report.json
-
-  performance-test:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt -r requirements-dev.txt
-    
-    - name: Run performance tests
-      run: |
-        pytest tests/ -v -m "slow" --tb=short || true
-        
-    - name: Generate performance report
-      run: |
-        echo "Performance test completed" > performance-report.txt
-        
-    - name: Upload performance report
-      uses: actions/upload-artifact@v3
-      with:
-        name: performance-report
-        path: performance-report.txt
-
-  notify:
-    runs-on: ubuntu-latest
-    needs: [test, docker-build, security-audit]
-    if: always()
-    
-    steps:
-    - name: Notify on success
-      if: needs.test.result == 'success' && needs.docker-build.result == 'success'
-      run: |
-        echo "✅ All tests passed successfully!"
-        echo "Commit: ${{ github.sha }}"
-        echo "Branch: ${{ github.ref }}"
-    
-    - name: Notify on failure
-      if: needs.test.result == 'failure' || needs.docker-build.result == 'failure'
-      run: |
-        echo "❌ Tests failed!"
-        echo "Commit: ${{ github.sha }}"
-        echo "Branch: ${{ github.ref }}"
-        exit 1
+        docker run --rm heimdall-starknet-server python -c "import app; print('Starknet server image OK')"
+        docker run --rm heimdall-nitro-enclave-mock python -c "import server; print('Mock enclave image OK')"

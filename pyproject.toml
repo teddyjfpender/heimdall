@@ -1,0 +1,248 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "heimdall"
+version = "0.1.0"
+description = "AWS Nitro Enclave Blockchain Wallet for Starknet"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Heimdall Development Team"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Security :: Cryptography",
+    "Topic :: System :: Hardware",
+]
+requires-python = ">=3.11"
+
+[project.urls]
+Homepage = "https://github.com/example/heimdall"
+Repository = "https://github.com/example/heimdall"
+Documentation = "https://heimdall.readthedocs.io"
+Issues = "https://github.com/example/heimdall/issues"
+
+# Tool configurations
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.tox
+  | \.venv
+  | _build
+  | build
+  | dist
+  | cdk.out
+  | node_modules
+)/
+'''
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+sections = ["FUTURE", "STDLIB", "THIRDPARTY", "FIRSTPARTY", "LOCALFOLDER"]
+known_first_party = ["nitro_wallet", "application", "config", "tests"]
+known_third_party = [
+    "boto3",
+    "botocore", 
+    "starknet_py",
+    "web3",
+    "fastapi",
+    "uvicorn",
+    "pydantic",
+    "pytest",
+    "redis",
+    "psycopg2",
+    "moto",
+    "docker"
+]
+skip = [
+    ".git",
+    ".mypy_cache", 
+    ".pytest_cache",
+    ".tox",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "cdk.out",
+    "node_modules"
+]
+skip_gitignore = true
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_optional = true
+disallow_untyped_defs = false  # Gradually enable this
+disallow_incomplete_defs = false  # Gradually enable this
+check_untyped_defs = true
+disallow_untyped_decorators = false  # Many third-party decorators are untyped
+ignore_missing_imports = true
+
+# Per-module options
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "scripts.*"
+ignore_errors = true
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config", 
+    "--cov=nitro_wallet",
+    "--cov=application",
+    "--cov=config",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-report=html:htmlcov",
+    "--cov-report=xml:coverage.xml",
+    "--cov-fail-under=80",
+    "--junitxml=junit.xml",
+]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+testpaths = ["tests"]
+markers = [
+    "unit: Unit tests that run quickly with mocks",
+    "integration: Integration tests that require external services",
+    "e2e: End-to-end tests",
+    "slow: Slow running tests",
+    "aws: Tests that use AWS services (mocked or real)",
+    "docker: Tests that use Docker containers",
+    "crypto: Tests involving cryptographic operations",
+    "enclave: Tests specific to Nitro Enclave functionality",
+    "starknet: Tests specific to Starknet blockchain functionality",
+    "ethereum: Tests specific to Ethereum blockchain functionality",
+    "blockchain: Tests that involve blockchain operations",
+    "performance: Performance and load tests",
+    "security: Security-focused tests",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning", 
+    "ignore:.*unclosed.*:ResourceWarning",
+    "ignore::pytest.PytestUnknownMarkWarning",
+]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.coverage.run]
+source = ["nitro_wallet", "application", "config"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/.*",
+    "setup.py",
+    "*/site-packages/*",
+    "*/dist-packages/*",
+    "cdk.out/*",
+    "scripts/*"
+]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+ignore_errors = true
+show_missing = true
+precision = 2
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.coverage.xml]
+output = "coverage.xml"
+
+[tool.bandit]
+targets = ["nitro_wallet", "application", "config"]
+exclude_dirs = ["tests", "docs", "scripts", ".venv", "venv", "build", "dist"]
+skips = [
+    "B101",  # Skip assert_used test - we use asserts appropriately
+    "B601",  # Skip paramiko_calls test - not using paramiko
+    "B602",  # Skip subprocess_popen_with_shell_equals_true test - used carefully
+]
+
+[tool.bandit.assert_used]
+# Allow asserts in test files
+skips = ["*/tests/*", "*test_*.py"]
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-docstring",
+    "too-few-public-methods",
+    "too-many-arguments", 
+    "too-many-locals",
+    "too-many-branches",
+    "too-many-statements",
+    "duplicate-code",
+    "invalid-name",
+    "line-too-long",  # Handled by black
+    "import-error",   # Handled by mypy
+]
+good-names = ["i", "j", "k", "ex", "db", "id", "_"]
+
+[tool.pylint.format]
+max-line-length = 88
+
+[tool.autoflake]
+remove-all-unused-imports = true
+remove-unused-variables = true
+remove-duplicate-keys = true
+ignore-init-module-imports = true
+in-place = true
+recursive = true
+exclude = [
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache", 
+    ".tox",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "cdk.out",
+    "node_modules"
+]
+
+[tool.pyupgrade]
+py38-plus = true

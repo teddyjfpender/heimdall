@@ -45,7 +45,7 @@ from aws_multiuser_integration import (
     performance_monitor
 )
 
-from tests.starknet_multiuser_factories import (
+from ...fixtures.starknet_multiuser_factories import (
     UserIdentityFactory,
     StarknetUserKeyFactory,
     MultiUserSessionFactory,

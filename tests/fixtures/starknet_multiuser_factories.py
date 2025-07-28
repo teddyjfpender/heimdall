@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Tuple
 import factory
 from factory import fuzzy
 
-from tests.starknet_factories import (
+from .starknet_factories import (
     StarknetPrivateKeyFactory,
     StarknetAddressFactory,
     StarknetFieldElementFactory,

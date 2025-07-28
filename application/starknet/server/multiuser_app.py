@@ -112,6 +112,10 @@ class MultiUserRequestHandler(BaseHTTPRequestHandler):
         Returns:
             bool: True if session is valid
         """
+        if session_data is None:
+            return False
+        
+        # Check if session_data is an empty dictionary
         if not session_data:
             return False
         

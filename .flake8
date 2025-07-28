@@ -1,0 +1,83 @@
+[flake8]
+# Configuration for flake8 Python linter
+max-line-length = 88
+max-complexity = 10
+
+# Ignore specific error codes
+extend-ignore =
+    # E203: whitespace before ':' (conflicts with black)
+    E203,
+    # W503: line break before binary operator (conflicts with black)
+    W503,
+    # E501: line too long (handled by black)
+    E501,
+    # D100: Missing docstring in public module (too strict for tests)
+    D100,
+    # D101: Missing docstring in public class (too strict for simple classes)
+    D101,
+    # D102: Missing docstring in public method (too strict for simple methods)
+    D102,
+    # D103: Missing docstring in public function (too strict for simple functions)
+    D103,
+    # D104: Missing docstring in public package
+    D104,
+    # D105: Missing docstring in magic method
+    D105
+
+# Directories to exclude
+exclude =
+    .git,
+    __pycache__,
+    .pytest_cache,
+    .mypy_cache,
+    .tox,
+    .venv,
+    venv,
+    *.egg-info,
+    build,
+    dist,
+    cdk.out,
+    node_modules,
+    htmlcov
+
+# Files to include
+filename = *.py
+
+# Per-file ignores
+per-file-ignores =
+    # Test files can have longer lines and missing docstrings
+    tests/*:D,E501,F401,F811
+    # Configuration files can import unused modules
+    config/*:F401
+    # Init files can have unused imports
+    __init__.py:F401
+    # Scripts can have different style requirements
+    scripts/*:D,E402
+
+# Select specific error codes to check
+select =
+    # Pyflakes errors
+    F,
+    # Pycodestyle errors
+    E,
+    # Pycodestyle warnings  
+    W,
+    # McCabe complexity
+    C,
+    # Docstring errors (pydocstyle)
+    D,
+    # Bugbear errors
+    B,
+    # Comprehension errors
+    C4,
+    # Simplify errors
+    SIM
+
+# Application import names for import order checking
+application-import-names = nitro_wallet,application,config,tests
+
+# Docstring style (Google style)
+docstring-convention = google
+
+# Enable specific bugbear warnings
+enable-extensions = B901,B902,B903

@@ -3,9 +3,9 @@
 import base64
 import json
 import random
+import secrets
 import factory
 from factory import fuzzy
-import web3
 
 # TODO: change from Eth to Starknet
 class EthereumPrivateKeyFactory(factory.Factory):
@@ -17,10 +17,10 @@ class EthereumPrivateKeyFactory(factory.Factory):
     @classmethod
     def _create(cls, model_class, *args, **kwargs):
         """Generate a valid secp256k1 private key."""
-        key_bytes = random.randbytes(32)
+        key_bytes = secrets.token_bytes(32)
         # Ensure key is in valid range (1 to n-1 where n is the order of secp256k1)
         while int.from_bytes(key_bytes, 'big') >= 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141:
-            key_bytes = random.randbytes(32)
+            key_bytes = secrets.token_bytes(32)
         return "0x" + key_bytes.hex()
 
 

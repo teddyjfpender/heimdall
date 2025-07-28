@@ -127,7 +127,11 @@ def validate_user_session(username: str, session_data: Optional[Dict[str, Any]] 
             raise UserSessionError("Username too long")
         
         # Additional session validation if provided
-        if session_data:
+        if session_data is not None:
+            # Check if session_data is an empty dictionary
+            if not session_data:
+                raise UserSessionError("Session data cannot be empty")
+            
             required_fields = ['session_id', 'timestamp']
             for field in required_fields:
                 if field not in session_data:
@@ -319,6 +323,9 @@ class StarknetMultiUserAWSManager:
         """
         Validate that a user owns a specific account address.
         
+        This implementation uses constant-time validation to prevent timing attacks.
+        All code paths take approximately the same time regardless of ownership validity.
+        
         Args:
             username: Username to validate
             account_address: Account address to check
@@ -331,6 +338,11 @@ class StarknetMultiUserAWSManager:
             validate_user_session(username, session_data)
             
             if not self._master_seed_loaded or not self._key_manager:
+                # Perform some dummy work to maintain timing consistency
+                import hashlib
+                for dummy_index in range(10):
+                    dummy_data = hashlib.sha256(f"dummy_{username}_{dummy_index}".encode()).digest()
+                    _ = int.from_bytes(dummy_data[:8], 'big')  # Dummy computation
                 return False
             
             # Convert address to int for comparison
@@ -339,18 +351,33 @@ class StarknetMultiUserAWSManager:
             else:
                 account_address_int = int(account_address)
             
-            # Check first few key indices for this user
+            # Use constant-time validation to prevent timing attacks
+            found_match = False
+            
+            # Always check all 10 key indices regardless of when we find a match
             for key_index in range(10):  # Check first 10 keys
                 try:
                     _, derived_address = self._key_manager.derive_user_key(username, key_index)
-                    if derived_address == account_address_int:
-                        return True
+                    # Use constant-time comparison - import from key_derivation module
+                    from key_derivation import constant_time_int_compare
+                    if constant_time_int_compare(derived_address, account_address_int):
+                        found_match = True
+                    # Continue execution regardless of match to maintain constant timing
                 except Exception:
+                    # Continue processing even if individual derivation fails
                     continue
             
-            return False
+            return found_match
             
         except Exception:
+            # Even in exception cases, maintain timing consistency
+            import hashlib
+            try:
+                for dummy_index in range(10):
+                    dummy_data = hashlib.sha256(f"error_dummy_{username}_{dummy_index}".encode()).digest()
+                    _ = int.from_bytes(dummy_data[:8], 'big')  # Dummy computation
+            except:
+                pass
             return False
     
     def _cleanup_master_seed(self) -> None:

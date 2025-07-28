@@ -1,0 +1,211 @@
+version: '3.8'
+
+services:
+  # Local PostgreSQL for testing and development
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: heimdall_test
+      POSTGRES_USER: heimdall
+      POSTGRES_PASSWORD: heimdall_password
+      POSTGRES_MULTIPLE_EXTENSIONS: pg_stat_statements
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U heimdall -d heimdall_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - heimdall-network
+
+  # Redis for caching and session management
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - heimdall-network
+
+  # LocalStack for AWS services mocking
+  localstack:
+    image: localstack/localstack:latest
+    ports:
+      - "4566:4566"  # LocalStack edge port
+      - "4510-4559:4510-4559"  # External service ports
+    environment:
+      - SERVICES=kms,secretsmanager,sts,iam,logs
+      - DEBUG=1
+      - DATA_DIR=/tmp/localstack/data
+      - HOST_TMP_FOLDER=${TMPDIR:-/tmp}localstack
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - PERSISTENCE=1
+    volumes:
+      - localstack_data:/tmp/localstack
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./docker/localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - heimdall-network
+
+  # Mock Nitro Enclave Server
+  nitro-enclave-mock:
+    build:
+      context: ./docker/nitro-enclave-mock
+      dockerfile: Dockerfile
+    environment:
+      - LOG_LEVEL=DEBUG
+      - MOCK_MODE=true
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+    ports:
+      - "8001:8001"  # Mock enclave communication port
+    depends_on:
+      localstack:
+        condition: service_healthy
+    networks:
+      - heimdall-network
+
+  # Starknet Server for local development
+  starknet-server:
+    build:
+      context: ./application/starknet/server
+      dockerfile: Dockerfile.dev
+    environment:
+      - ENVIRONMENT=development
+      - LOG_LEVEL=DEBUG
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=heimdall_test
+      - POSTGRES_USER=heimdall
+      - POSTGRES_PASSWORD=heimdall_password
+      - REDIS_URL=redis://redis:6379/0
+      - ENCLAVE_ENDPOINT=http://nitro-enclave-mock:8001
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+      nitro-enclave-mock:
+        condition: service_started
+    volumes:
+      - ./application/starknet/server:/app
+      - ./tests:/app/tests
+    networks:
+      - heimdall-network
+
+  # Test Runner Service
+  test-runner:
+    build:
+      context: .
+      dockerfile: docker/test-runner/Dockerfile
+    environment:
+      - PYTHONPATH=/app
+      - AWS_ENDPOINT_URL=http://localstack:4566
+      - AWS_DEFAULT_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - POSTGRES_HOST=postgres
+      - POSTGRES_DB=heimdall_test
+      - POSTGRES_USER=heimdall
+      - POSTGRES_PASSWORD=heimdall_password
+      - REDIS_URL=redis://redis:6379/1  # Different DB for testing
+      - TEST_MODE=true
+    volumes:
+      - .:/app
+      - test_reports:/app/test-reports
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    command: ["python", "-m", "pytest", "--tb=short"]
+    networks:
+      - heimdall-network
+
+  # Development Tools Container
+  dev-tools:
+    build:
+      context: ./docker/dev-tools
+      dockerfile: Dockerfile
+    volumes:
+      - .:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+    working_dir: /workspace
+    command: ["tail", "-f", "/dev/null"]  # Keep container running
+    networks:
+      - heimdall-network
+
+  # Prometheus for monitoring (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - heimdall-network
+
+  # Grafana for visualization (optional)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
+    networks:
+      - heimdall-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  localstack_data:
+  test_reports:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  heimdall-network:
+    driver: bridge
