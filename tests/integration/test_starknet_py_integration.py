@@ -37,7 +37,7 @@ class StarknetPyIntegrationHelper:
     
     @staticmethod
     def create_mock_full_node_client(
-        chain_id: StarknetChainId = StarknetChainId.TESTNET,
+        chain_id: StarknetChainId = StarknetChainId.SEPOLIA,
         simulate_responses: bool = True
     ) -> Mock:
         """Create a mock FullNodeClient for testing."""
@@ -65,7 +65,7 @@ class StarknetPyIntegrationHelper:
     def create_test_account(
         private_key: int,
         account_address: int,
-        chain_id: StarknetChainId = StarknetChainId.TESTNET,
+        chain_id: StarknetChainId = StarknetChainId.SEPOLIA,
         mock_client: Optional[Mock] = None
     ) -> Account:
         """Create a test Account instance."""
@@ -132,7 +132,7 @@ class TestStarknetPyTransactionCreation:
         # Create mock client and account
         mock_client = StarknetPyIntegrationHelper.create_mock_full_node_client()
         account = StarknetPyIntegrationHelper.create_test_account(
-            private_key, account_address, StarknetChainId.TESTNET, mock_client
+            private_key, account_address, StarknetChainId.SEPOLIA, mock_client
         )
         
         # Create test call
@@ -192,11 +192,11 @@ class TestStarknetPyTransactionCreation:
         
         # Test parameters for declare transaction
         private_key = 0x2345678901bcdef2345678901bcdef2345678901bcdef2345678901bcdef234
-        account_address = 0x03c6df5e111d1dd8d7d7dd8f8g7g7g7g7g7g7g7g7g7g7g7g7g7g7g7g7g7g7g7
+        account_address = 0x03c6df5e111d1dd8d7d7dd8f8a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7a7
         
         mock_client = StarknetPyIntegrationHelper.create_mock_full_node_client()
         account = StarknetPyIntegrationHelper.create_test_account(
-            private_key, account_address, StarknetChainId.TESTNET, mock_client
+            private_key, account_address, StarknetChainId.SEPOLIA, mock_client
         )
         
         # Mock contract class for declare transaction
@@ -220,7 +220,7 @@ class TestStarknetPyTransactionCreation:
         with patch.object(account, 'sign_declare_transaction') as mock_sign_declare:
             mock_signed_declare = Mock()
             mock_signed_declare.signature = [0x234567890abcdef1, 0x876543210fedcba1]
-            mock_signed_declare.transaction_hash = 0xdeclare123456789abcdef123456789abcdef123456789abcdef123456789abc
+            mock_signed_declare.transaction_hash = 0x1234567123456789abcdef123456789abcdef123456789abcdef123456789abc
             mock_signed_declare.class_hash = 0x123456789abcdef123456789abcdef123456789abcdef123456789abcdef123
             mock_signed_declare.sender_address = account_address
             mock_signed_declare.max_fee = 0x5af3107a4000
@@ -254,18 +254,18 @@ class TestStarknetPyTransactionCreation:
         
         # Test parameters
         private_key = 0x3456789012cdef3456789012cdef3456789012cdef3456789012cdef345678
-        account_address = 0x04d7e0f5222e2ee9e8e8ee9f9h8h8h8h8h8h8h8h8h8h8h8h8h8h8h8h8h8h8h8
+        account_address = 0x04d7e0f5222e2ee9e8e8ee9f9b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8b8
         
         mock_client = StarknetPyIntegrationHelper.create_mock_full_node_client()
         account = StarknetPyIntegrationHelper.create_test_account(
-            private_key, account_address, StarknetChainId.TESTNET, mock_client
+            private_key, account_address, StarknetChainId.SEPOLIA, mock_client
         )
         
         # Mock deploy account transaction
         with patch.object(account, 'sign_deploy_account_transaction') as mock_sign_deploy:
             mock_signed_deploy = Mock()
             mock_signed_deploy.signature = [0x345678901abcdef2, 0x765432109fedcba2]
-            mock_signed_deploy.transaction_hash = 0xdeploy123456789abcdef123456789abcdef123456789abcdef123456789abcd
+            mock_signed_deploy.transaction_hash = 0x123456123456789abcdef123456789abcdef123456789abcdef123456789abcd
             mock_signed_deploy.class_hash = 0x033434ad846cdd5f23eb73ff09fe6fddd568284a0fb7d1be20ee482f044dabe2
             mock_signed_deploy.contract_address_salt = 0x123456789abcdef
             mock_signed_deploy.constructor_calldata = []
@@ -310,12 +310,12 @@ class TestStarknetPyHashingAndVerification:
         
         # Test parameters
         private_key = 0x4567890123def4567890123def4567890123def4567890123def4567890123
-        account_address = 0x05e8e1f6333f3ff0f0f0ff1g0i9i9i9i9i9i9i9i9i9i9i9i9i9i9i9i9i9i9i9
+        account_address = 0x05e8e1f6333f3ff0f0f0ff1c0d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9d9
         
         mock_client = StarknetPyIntegrationHelper.create_mock_full_node_client()
         
         # Create call for hashing
-        contract_address = 0x06f9f2g7444g4gg1g1g1gg2h1j0j0j0j0j0j0j0j0j0j0j0j0j0j0j0j0j0j0j0
+        contract_address = 0x06f9f2a7444a4aa1a1a1aa2b1c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0
         function_name = "approve"
         calldata = [0x987654321, 0x2000]
         
@@ -326,11 +326,11 @@ class TestStarknetPyHashingAndVerification:
         # Test transaction hash computation
         max_fee = 0x16345785d8a0000
         nonce = 5
-        chain_id = StarknetChainId.TESTNET
+        chain_id = StarknetChainId.SEPOLIA
         
         # Mock hash computation
         with patch('starknet_py.hash.transaction.compute_transaction_hash') as mock_compute_hash:
-            expected_hash = 0xhash123456789abcdef123456789abcdef123456789abcdef123456789abcdef
+            expected_hash = 0x1234123456789abcdef123456789abcdef123456789abcdef123456789abcdef
             mock_compute_hash.return_value = expected_hash
             
             # Compute hash
@@ -430,7 +430,7 @@ class TestStarknetPyChainInteraction:
         # Test different chain IDs
         chain_tests = [
             {
-                "chain_id": StarknetChainId.TESTNET,
+                "chain_id": StarknetChainId.SEPOLIA,
                 "expected_name": "testnet",
                 "rpc_url": "https://starknet-testnet.public.blastapi.io"
             },
@@ -442,7 +442,7 @@ class TestStarknetPyChainInteraction:
         ]
         
         private_key = 0x5678901234ef5678901234ef5678901234ef5678901234ef5678901234ef567
-        account_address = 0x07f0f3h8555h5hh2h2h2hh3i2k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1k1
+        account_address = 0x07f0f3a8555a5aa2a2a2aa3b2c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1c1
         
         for test in chain_tests:
             mock_client = StarknetPyIntegrationHelper.create_mock_full_node_client(test["chain_id"])
@@ -482,11 +482,11 @@ class TestStarknetPyChainInteraction:
         user_session = aws_mock_fixtures.create_test_user_session("fee_test_user")
         
         private_key = 0x6789012345f6789012345f6789012345f6789012345f6789012345f678901
-        account_address = 0x08g1g4i9666i6ii3i3i3ii4j3l2l2l2l2l2l2l2l2l2l2l2l2l2l2l2l2l2l2l2
+        account_address = 0x08a1a4b9666b6bb3b3b3bb4c3d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2
         
         mock_client = StarknetPyIntegrationHelper.create_mock_full_node_client()
         account = StarknetPyIntegrationHelper.create_test_account(
-            private_key, account_address, StarknetChainId.TESTNET, mock_client
+            private_key, account_address, StarknetChainId.SEPOLIA, mock_client
         )
         
         # Test different fee estimation scenarios
@@ -537,11 +537,11 @@ class TestStarknetPyChainInteraction:
         user_session = aws_mock_fixtures.create_test_user_session("nonce_test_user")
         
         private_key = 0x789012345f789012345f789012345f789012345f789012345f789012345f78
-        account_address = 0x09h2h5j0777j7jj4j4j4jj5k4m3m3m3m3m3m3m3m3m3m3m3m3m3m3m3m3m3m3m3
+        account_address = 0x09a2a5c0777c7cc4c4c4cc5d4e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3
         
         mock_client = StarknetPyIntegrationHelper.create_mock_full_node_client()
         account = StarknetPyIntegrationHelper.create_test_account(
-            private_key, account_address, StarknetChainId.TESTNET, mock_client
+            private_key, account_address, StarknetChainId.SEPOLIA, mock_client
         )
         
         # Test nonce sequence
@@ -607,7 +607,7 @@ class TestStarknetPyErrorHandling:
                 StarkCurveSigner(
                     account_address=account_address,
                     key_pair=invalid_key,
-                    chain_id=StarknetChainId.TESTNET
+                    chain_id=StarknetChainId.SEPOLIA
                 )
     
     def test_invalid_transaction_parameters(self, aws_mock_fixtures):
@@ -615,11 +615,11 @@ class TestStarknetPyErrorHandling:
         user_session = aws_mock_fixtures.create_test_user_session("error_test_user")
         
         private_key = 0x8901234567890123456789012345678901234567890123456789012345678901
-        account_address = 0x10i3i6k1888k8kk5k5k5kk6l5n4n4n4n4n4n4n4n4n4n4n4n4n4n4n4n4n4n4n4
+        account_address = 0x10b3b6d1888d8dd5d5d5dd6e5f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4
         
         mock_client = StarknetPyIntegrationHelper.create_mock_full_node_client()
         account = StarknetPyIntegrationHelper.create_test_account(
-            private_key, account_address, StarknetChainId.TESTNET, mock_client
+            private_key, account_address, StarknetChainId.SEPOLIA, mock_client
         )
         
         # Test invalid call parameters
@@ -657,11 +657,11 @@ class TestStarknetPyErrorHandling:
         user_session = aws_mock_fixtures.create_test_user_session("network_error_user")
         
         private_key = 0x9012345678901234567890123456789012345678901234567890123456789012
-        account_address = 0x11j4j7l2999l9ll6l6l6ll7m6o5o5o5o5o5o5o5o5o5o5o5o5o5o5o5o5o5o5o5
+        account_address = 0x11c4c7e2999e9ee6e6e6ee7f6a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5
         
         # Create mock client that simulates network errors
         mock_client = Mock(spec=FullNodeClient)
-        mock_client.chain_id = StarknetChainId.TESTNET
+        mock_client.chain_id = StarknetChainId.SEPOLIA
         
         # Simulate different network errors
         network_errors = [
@@ -671,7 +671,7 @@ class TestStarknetPyErrorHandling:
         ]
         
         account = StarknetPyIntegrationHelper.create_test_account(
-            private_key, account_address, StarknetChainId.TESTNET, mock_client
+            private_key, account_address, StarknetChainId.SEPOLIA, mock_client
         )
         
         call = Call(
