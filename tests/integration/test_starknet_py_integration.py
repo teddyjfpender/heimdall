@@ -677,7 +677,8 @@ class TestStarknetPyErrorHandling:
             private_key, account_address, StarknetChainId.SEPOLIA, mock_client
         )
 
-        # Test invalid call parameters
+        # Test invalid call parameters during transaction signing
+        # Call constructor is permissive, but validation happens during signing
         invalid_call_tests = [
             {
                 "name": "Invalid contract address",
@@ -686,7 +687,7 @@ class TestStarknetPyErrorHandling:
                 "calldata": [0x123],
             },
             {
-                "name": "Invalid selector",
+                "name": "Invalid selector", 
                 "to_addr": 0x123,
                 "selector": -1,  # Negative selector
                 "calldata": [0x123],
@@ -701,10 +702,24 @@ class TestStarknetPyErrorHandling:
 
         for test in invalid_call_tests:
             with pytest.raises((ValueError, AssertionError, TypeError)):
-                Call(
+                # Create the invalid call (this won't fail)
+                invalid_call = Call(
                     to_addr=test["to_addr"],
                     selector=test["selector"],
                     calldata=test["calldata"],
+                )
+                
+                # Validation happens during transaction signing
+                l1_resource_bounds = ResourceBounds(
+                    max_amount=100,
+                    max_price_per_unit=1000000000,
+                )
+                
+                # This should raise an error during serialization/signing
+                account.sign_invoke_v3_sync(
+                    calls=[invalid_call],
+                    l1_resource_bounds=l1_resource_bounds,
+                    nonce=0,
                 )
 
     def test_network_error_handling(self, aws_mock_fixtures):
