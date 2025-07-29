@@ -82,7 +82,7 @@ class TestStarknetBasicFunctionality:
     def test_starknet_server_import(self):
         """Test that Starknet server can be imported."""
         try:
-            import server
+            from application.starknet.enclave import server
 
             assert hasattr(server, "kms_call")
             assert hasattr(server, "StarkCurveSigner")
