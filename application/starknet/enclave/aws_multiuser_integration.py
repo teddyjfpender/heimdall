@@ -12,7 +12,7 @@ import subprocess
 import time
 from typing import Dict, Optional, Tuple, Any
 
-from key_derivation import (
+from .key_derivation import (
     StarknetMultiUserKeyManager,
     StarknetKeyDerivationError,
     InvalidUserNameError,

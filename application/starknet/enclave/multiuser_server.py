@@ -22,7 +22,7 @@ from starknet_py.net.models.chains import StarknetChainId
 from starknet_py.net.signer.stark_curve_signer import StarkCurveSigner
 
 # Import our multi-user key derivation system
-from aws_multiuser_integration import (
+from .aws_multiuser_integration import (
     StarknetMultiUserAWSManager,
     AWSIntegrationError,
     KMSDecryptionError,
