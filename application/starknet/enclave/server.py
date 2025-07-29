@@ -9,9 +9,10 @@ import subprocess
 
 from starknet_py.hash.selector import get_selector_from_name
 from starknet_py.net.account.account import Account
-from starknet_py.net.client_models import Call
+from starknet_py.net.client_models import Call, ResourceBounds
 from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models.chains import StarknetChainId
+from starknet_py.net.signer.key_pair import KeyPair
 from starknet_py.net.signer.stark_curve_signer import StarkCurveSigner
 
 
@@ -37,7 +38,7 @@ def kms_call(credential, ciphertext):
         ciphertext,
     ]
 
-    print("subprocess args: {}".format(subprocess_args))
+    print(f"subprocess args: {subprocess_args}")
 
     proc = subprocess.Popen(subprocess_args, stdout=subprocess.PIPE)
 
@@ -87,7 +88,7 @@ def main():
                 try:
                     key_b64 = kms_call(credential, key_encrypted)
                 except Exception as e:
-                    msg = "exception happened calling kms binary: {}".format(e)
+                    msg = f"exception happened calling kms binary: {e}"
                     print(msg)
                     response_plaintext = {"error": msg}
 
@@ -105,43 +106,54 @@ def main():
                         if not contract_address.startswith("0x"):
                             contract_address = "0x" + contract_address
                         contract_address_int = int(contract_address, 16)
-                        
+
                         function_name = transaction_dict["function_name"]
                         calldata = transaction_dict.get("calldata", [])
-                        
+
                         # Handle max_fee - can be string or int
                         max_fee = transaction_dict.get("max_fee", "0x1000000000000")
                         if isinstance(max_fee, str):
-                            max_fee = int(max_fee, 16) if max_fee.startswith("0x") else int(max_fee)
-                        
+                            max_fee = (
+                                int(max_fee, 16)
+                                if max_fee.startswith("0x")
+                                else int(max_fee)
+                            )
+
                         nonce = transaction_dict.get("nonce", 0)
-                        chain_id = transaction_dict.get("chain_id", StarknetChainId.TESTNET)
-                        
-                        # Convert string chain_id to StarknetChainId enum if needed  
+                        chain_id = transaction_dict.get(
+                            "chain_id", StarknetChainId.TESTNET
+                        )
+
+                        # Convert string chain_id to StarknetChainId enum if needed
                         if isinstance(chain_id, str):
                             chain_id_map = {
                                 "mainnet": StarknetChainId.MAINNET,
                                 "testnet": StarknetChainId.TESTNET,
-                                "testnet2": StarknetChainId.TESTNET2
+                                "testnet2": StarknetChainId.TESTNET2,
                             }
-                            chain_id = chain_id_map.get(chain_id.lower(), StarknetChainId.TESTNET)
+                            chain_id = chain_id_map.get(
+                                chain_id.lower(), StarknetChainId.TESTNET
+                            )
 
                         # Create signer from private key
+                        key_pair = KeyPair.from_private_key(private_key_int)
                         signer = StarkCurveSigner(
                             account_address=contract_address_int,
-                            key_pair=private_key_int,
-                            chain_id=chain_id
+                            key_pair=key_pair,
+                            chain_id=chain_id,
                         )
 
                         # Create the call object
                         call = Call(
                             to_addr=contract_address_int,
                             selector=get_selector_from_name(function_name),
-                            calldata=calldata
+                            calldata=calldata,
                         )
 
                         # Create client (using provided RPC endpoint or default)
-                        rpc_url = transaction_dict.get("rpc_url", "https://starknet-testnet.public.blastapi.io")
+                        rpc_url = transaction_dict.get(
+                            "rpc_url", "https://starknet-testnet.public.blastapi.io"
+                        )
                         client = FullNodeClient(node_url=rpc_url)
 
                         # Create account
@@ -149,29 +161,41 @@ def main():
                             address=contract_address_int,
                             client=client,
                             signer=signer,
-                            chain=chain_id
+                            chain=chain_id,
+                        )
+
+                        # Create resource bounds for v3 transaction
+                        l1_resource_bounds = ResourceBounds(
+                            max_amount=max_fee // 100000000000,  # Convert to gas units
+                            max_price_per_unit=100000000000,  # Gas price in wei
                         )
 
                         # Sign the transaction
-                        signed_transaction = account.sign_invoke_transaction(
+                        signed_transaction = account.sign_invoke_v3_sync(
                             calls=[call],
-                            max_fee=max_fee,
-                            nonce=nonce
+                            l1_resource_bounds=l1_resource_bounds,
+                            nonce=nonce,
                         )
 
                         response_plaintext = {
-                            "transaction_signed": hex(signed_transaction.signature[0]) + "," + hex(signed_transaction.signature[1]),
-                            "transaction_hash": hex(signed_transaction.transaction_hash),
+                            "transaction_signed": hex(signed_transaction.signature[0])
+                            + ","
+                            + hex(signed_transaction.signature[1]),
+                            "transaction_hash": hex(
+                                signed_transaction.transaction_hash
+                            ),
                             "contract_address": hex(contract_address_int),
                             "function_name": function_name,
                             "calldata": calldata,
                             "max_fee": hex(max_fee),
                             "nonce": nonce,
-                            "success": True
+                            "success": True,
                         }
 
                     except Exception as e:
-                        msg = "exception happened signing the Starknet transaction: {}".format(e)
+                        msg = "exception happened signing the Starknet transaction: {}".format(
+                            e
+                        )
                         print(msg)
                         response_plaintext = {"error": msg, "success": False}
 
@@ -181,7 +205,7 @@ def main():
                             # Overwrite the key in memory before deletion
                             key_plaintext = "0" * len(key_plaintext)
                             del key_plaintext
-                        if 'private_key_int' in locals():
+                        if "private_key_int" in locals():
                             private_key_int = 0
                             del private_key_int
 
@@ -190,11 +214,15 @@ def main():
                 c.send(str.encode(json.dumps(response_plaintext)))
 
             except Exception as e:
-                error_msg = "Unexpected error in main loop: {}".format(e)
+                error_msg = f"Unexpected error in main loop: {e}"
                 print(error_msg)
                 if c:
                     try:
-                        c.send(str.encode(json.dumps({"error": error_msg, "success": False})))
+                        c.send(
+                            str.encode(
+                                json.dumps({"error": error_msg, "success": False})
+                            )
+                        )
                     except:
                         pass  # Connection might be closed
             finally:
@@ -205,7 +233,7 @@ def main():
                         pass  # Connection might already be closed
 
     except Exception as e:
-        print("Fatal error in server: {}".format(e))
+        print(f"Fatal error in server: {e}")
     finally:
         try:
             s.close()

@@ -35,7 +35,11 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "WebFetch(domain:starknetpy.readthedocs.io)",
+      "Bash(SKIP_HOOKS=1 git add -A)",
+      "Bash(SKIP_HOOKS=1 git commit -m \"fix: add remaining changes after pre-commit formatting\n\n🤖 Generated with [Claude Code](https://claude.ai/code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
+      "Bash(git --no-pager log --oneline -5)"
     ],
     "deny": []
   }
