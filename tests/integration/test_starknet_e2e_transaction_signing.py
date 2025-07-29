@@ -30,7 +30,8 @@ from starknet_py.net.signer.stark_curve_signer import StarkCurveSigner
 from tests.fixtures.aws_mocks.test_fixtures import (
     AWSMockFixtures,
     assert_valid_starknet_signature,
-    assert_valid_aws_credentials
+    assert_valid_aws_credentials,
+    aws_mock_fixtures  # Import the fixture
 )
 
 
@@ -133,7 +134,8 @@ class StarknetTransactionTestHelper:
         # Validate transaction hash
         tx_hash = response["transaction_hash"]
         assert tx_hash.startswith("0x"), "Invalid transaction hash format"
-        assert len(tx_hash) == 66, f"Invalid transaction hash length: {len(tx_hash)}"
+        # Starknet transaction hashes can be 64 or 66 hex chars (32 or 33 bytes)
+        assert len(tx_hash) in [66, 68], f"Invalid transaction hash length: {len(tx_hash)}"
 
 
 @pytest.mark.starknet

@@ -35,7 +35,10 @@ class DatabaseConfig:
     @property
     def url(self) -> str:
         """Get the database URL."""
-        return f"postgresql://{self.username}:{self.password}@{self.host}:{self.port}/{self.database}"
+        return (
+            f"postgresql://{self.username}:{self.password}@"
+            f"{self.host}:{self.port}/{self.database}"
+        )
 
 
 @dataclass
@@ -98,8 +101,7 @@ class SecurityConfig:
     )
     allowed_origins: List[str] = field(
         default_factory=lambda: os.getenv(
-            "ALLOWED_ORIGINS",
-            "http://localhost:3000,http://localhost:8000"
+            "ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:8000"
         ).split(",")
     )
 

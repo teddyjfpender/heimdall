@@ -10,6 +10,12 @@ import boto3
 import pytest
 from moto import mock_aws
 
+# Import fixtures to make them available
+from tests.fixtures.aws_mocks.test_fixtures import (
+    aws_mock_fixtures,
+    aws_test_environment
+)
+
 
 @pytest.fixture(scope="session")
 def aws_credentials():

@@ -68,7 +68,7 @@ repos:
     rev: 1.7.5
     hooks:
       - id: bandit
-        args: [-r, nitro_wallet/, application/, config/, -f, json, -o, bandit-report.json]
+        args: [-r, ., -f, json, -o, bandit-report.json]
         exclude: ^tests/
 
   # Python upgrades

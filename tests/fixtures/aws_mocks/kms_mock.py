@@ -575,11 +575,19 @@ def create_kms_mock(region: str = "us-east-1") -> MockKMSService:
     test_key_id = "test-master-seed-key"
     test_plaintext = secrets.randbits(256).to_bytes(32, 'big')  # 32-byte master seed
     
+    # Create the KMS key first
+    key_result = mock_service.create_key(
+        description="Test master seed key for Heimdall testing",
+        key_usage="ENCRYPT_DECRYPT",
+        key_spec="SYMMETRIC_DEFAULT"
+    )
+    actual_key_id = key_result["KeyMetadata"]["KeyId"]
+    
     # Create encrypted test data
-    encrypted_result = mock_service.encrypt(test_key_id, test_plaintext)
+    encrypted_result = mock_service.encrypt(actual_key_id, test_plaintext)
     
     # Store test data as service attributes for easy access
-    mock_service.test_key_id = test_key_id
+    mock_service.test_key_id = actual_key_id
     mock_service.test_plaintext = test_plaintext
     mock_service.test_ciphertext = encrypted_result["CiphertextBlob"]
     
