@@ -52,7 +52,7 @@ class StarknetPyIntegrationHelper:
             # Configure get_nonce method with return value
             mock_client.get_nonce = Mock(return_value=0)
 
-            mock_client.estimate_fee.return_value = Mock(
+            mock_client.estimate_fee_sync.return_value = Mock(
                 overall_fee=0x16345785D8A0000,
                 gas_consumed=50000,
                 gas_price=100000000000,
@@ -566,10 +566,10 @@ class TestStarknetPyChainInteraction:
             mock_fee_estimate.gas_consumed = len(scenario["calldata"]) * 1000 + 50000
             mock_fee_estimate.gas_price = 100000000000
 
-            mock_client.estimate_fee.return_value = mock_fee_estimate
+            mock_client.estimate_fee_sync.return_value = mock_fee_estimate
 
-            # Test fee estimation
-            estimated_fee = mock_client.estimate_fee(calls=[call])
+            # Test fee estimation using sync method
+            estimated_fee = mock_client.estimate_fee_sync(calls=[call])
 
             # Validate fee estimation
             assert estimated_fee.overall_fee >= scenario["expected_fee_range"][0]
