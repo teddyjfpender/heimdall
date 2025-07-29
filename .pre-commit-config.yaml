@@ -154,7 +154,7 @@ repos:
       # Validate configuration files
       - id: validate-config
         name: Validate configuration
-        entry: bash -c 'PYTHONPATH=. python -c "from config.settings import settings; errors = settings.validate() if hasattr(settings, \"validate\") else []; print(\"✅ Config valid\" if not errors else f\"❌ Config errors: {errors}\"); exit(len(errors))"'
+        entry: bash -c 'PYTHONPATH=. python -c "from config.settings import settings; errors = getattr(settings, \"validate\", lambda: [])(); print(\"✅ Config valid\" if not errors else \"❌ Config errors:\", errors); exit(len(errors))"'
         language: system
         pass_filenames: false
         files: ^config/.*\.py$
