@@ -7,7 +7,7 @@ validation for all cryptographic operations in the Heimdall system.
 
 import gc
 import hashlib
-import psutil  
+import os
 import secrets
 import statistics
 import threading
@@ -17,13 +17,13 @@ from typing import Dict, List, Tuple
 from unittest.mock import patch
 
 import pytest
+try:
+    import psutil
+except ImportError:
+    psutil = None
 
 # Import the modules under test
-import sys
-import os
-sys.path.append(os.path.join(os.path.dirname(__file__), '../../../application/starknet/enclave'))
-
-from key_derivation import (
+from application.starknet.enclave.key_derivation import (
     hkdf,
     hkdf_extract,
     hkdf_expand,
@@ -176,11 +176,14 @@ class TestPerformanceBenchmarks:
         assert cache_speedup > 2, f"Cache speedup insufficient: {cache_speedup}x"
 
 
+@pytest.mark.skipif(psutil is None, reason="psutil not installed")
 class TestMemoryUsageAndLeaks:
     """Test memory usage and potential memory leaks."""
     
     def get_memory_usage(self):
         """Get current memory usage in MB."""
+        if psutil is None:
+            pytest.skip("psutil not installed")
         process = psutil.Process(os.getpid())
         return process.memory_info().rss / 1024 / 1024  # Convert to MB
     

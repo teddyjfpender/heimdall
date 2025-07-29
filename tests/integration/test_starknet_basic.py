@@ -8,10 +8,7 @@ import pytest
 import sys
 import os
 
-# Add the starknet application to the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '../../application/starknet/enclave'))
-
-from tests.starknet_factories import (
+from tests.fixtures.starknet_factories import (
     StarknetPrivateKeyFactory,
     validate_stark_private_key,
     validate_stark_field_element,
