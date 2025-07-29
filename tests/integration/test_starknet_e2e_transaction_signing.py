@@ -26,7 +26,6 @@ from starknet_py.net.client_models import Call
 from starknet_py.net.full_node_client import FullNodeClient
 from starknet_py.net.models.chains import StarknetChainId
 from starknet_py.net.signer.stark_curve_signer import StarkCurveSigner
-from starknet_py.net.models.transaction import InvokeTransaction, DeclareTransaction
 
 from tests.fixtures.aws_mocks.test_fixtures import (
     AWSMockFixtures,
