@@ -1,9 +1,6 @@
 """Simple test to verify key derivation works."""
 
-import sys
-sys.path.append('/Users/theodorepender/Projects/Coding/py-projects/heimdall/application/starknet/enclave')
-
-from key_derivation import derive_user_private_key, create_test_master_seed, validate_starknet_private_key
+from application.starknet.enclave.key_derivation import derive_user_private_key, create_test_master_seed, validate_starknet_private_key
 
 def test_basic_derivation():
     """Test basic key derivation."""

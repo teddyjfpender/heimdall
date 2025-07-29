@@ -24,11 +24,14 @@ def run_tests():
     env = os.environ.copy()
     env['PYTHONPATH'] = str(project_root)
     
-    # Run the main test suite from project root
+    # Run pytest with the test directory
     try:
         result = subprocess.run([
             sys.executable, 
-            "-m", "tests.unit.crypto.test_multiuser_key_derivation"
+            "-m", "pytest",
+            "tests/",
+            "-v",
+            "--tb=short"
         ], env=env, cwd=project_root, check=False)
         return result.returncode
     except Exception as e:

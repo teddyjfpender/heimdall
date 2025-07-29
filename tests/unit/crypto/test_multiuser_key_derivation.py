@@ -16,10 +16,7 @@ from typing import Dict, List, Set, Tuple
 import pytest
 
 # Import modules under test
-import sys
-sys.path.append('/Users/theodorepender/Projects/Coding/py-projects/heimdall/application/starknet/enclave')
-
-from key_derivation import (
+from application.starknet.enclave.key_derivation import (
     StarknetMultiUserKeyManager,
     derive_user_private_key,
     validate_starknet_private_key,

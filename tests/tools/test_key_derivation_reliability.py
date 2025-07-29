@@ -5,11 +5,9 @@ This test specifically validates that the key derivation algorithm
 reliably generates valid keys and uses the fallback mechanism appropriately.
 """
 
-import sys
 import time
-sys.path.append('/Users/theodorepender/Projects/Coding/py-projects/heimdall/application/starknet/enclave')
 
-from key_derivation import (
+from application.starknet.enclave.key_derivation import (
     derive_user_private_key,
     validate_starknet_private_key,
     create_test_master_seed,

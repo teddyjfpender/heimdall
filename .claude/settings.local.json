@@ -31,7 +31,10 @@
       "Bash(mv:*)",
       "Bash(touch:*)",
       "Bash(tree:*)",
-      "Bash(pip show:*)"
+      "Bash(pip show:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
