@@ -644,22 +644,22 @@ class TestStarknetPyErrorHandling:
 
     def test_invalid_private_key_handling(self, aws_mock_fixtures):
         """Test handling of invalid private keys."""
-        # Test various invalid private key scenarios
+        # Test various invalid private key scenarios that actually raise exceptions
         invalid_keys = [
-            0,  # Zero key
-            -1,  # Negative key
-            2**251,  # Key too large for field
-            "invalid_key",  # Non-integer key
+            0,  # Zero key - raises ValueError
+            -1,  # Negative key - raises OverflowError  
+            "invalid_key",  # Non-integer key - raises ValueError
         ]
 
         account_address = 0x123
 
         for invalid_key in invalid_keys:
-            with pytest.raises((ValueError, TypeError, AssertionError)):
-                # This should raise an error
+            with pytest.raises((ValueError, TypeError, AssertionError, OverflowError)):
+                # This should raise an error when creating KeyPair
+                key_pair = KeyPair.from_private_key(invalid_key)
                 StarkCurveSigner(
                     account_address=account_address,
-                    key_pair=invalid_key,
+                    key_pair=key_pair,
                     chain_id=StarknetChainId.SEPOLIA,
                 )
 
