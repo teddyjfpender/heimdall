@@ -370,6 +370,14 @@ def aws_test_environment():
         yield env_manager
 
 
+@pytest.fixture(scope="function")
+def aws_test_environment():
+    """AWS test environment fixture."""
+    from .test_environment import aws_test_environment as aws_env_context
+    with aws_env_context() as env:
+        yield env
+
+
 @pytest.fixture(scope="function") 
 def aws_mock_fixtures(aws_test_environment):
     """Function-scoped AWS mock fixtures."""

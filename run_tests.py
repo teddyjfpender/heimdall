@@ -32,8 +32,9 @@ def run_tests():
             "-m", "pytest",
             "tests/",
             "-v",
-            "--tb=short",
-            "-x"  # Stop on first failure to get clearer error messages
+            "--tb=long",  # Show full traceback for better debugging
+            "-x",  # Stop on first failure to get clearer error messages
+            "--import-mode=importlib"  # Use importlib mode for better import handling
         ], env=env, cwd=project_root, check=False)
         
         if result.returncode != 0:
