@@ -734,6 +734,11 @@ class TestStarknetPyErrorHandling:
         # Create mock client that simulates network errors
         mock_client = Mock(spec=FullNodeClient)
         mock_client.chain_id = StarknetChainId.SEPOLIA
+        
+        # Configure mock methods first
+        mock_client.get_nonce = Mock()
+        mock_client.get_nonce_sync = Mock()
+        mock_client.estimate_fee_sync = Mock()
 
         # Simulate different network errors
         network_errors = [
@@ -753,16 +758,16 @@ class TestStarknetPyErrorHandling:
         )
 
         for error in network_errors:
-            # Mock client to raise network error
-            mock_client.get_nonce.side_effect = error
-            mock_client.estimate_fee.side_effect = error
+            # Mock client to raise network error on sync methods
+            mock_client.get_nonce_sync.side_effect = error
+            mock_client.estimate_fee_sync.side_effect = error
 
             # Test that network errors are properly propagated
             with pytest.raises(type(error)):
-                mock_client.get_nonce(account_address)
+                mock_client.get_nonce_sync(account_address)
 
             with pytest.raises(type(error)):
-                mock_client.estimate_fee(calls=[call])
+                mock_client.estimate_fee_sync(calls=[call])
 
     def test_signature_validation_errors(self, aws_mock_fixtures):
         """Test signature validation error scenarios."""
